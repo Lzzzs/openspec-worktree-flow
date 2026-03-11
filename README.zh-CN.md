@@ -164,4 +164,4 @@ cd ../your-repo-add-rrweb-recording
 
 ## License
 
-正式对外分发前，请补上仓库采用的许可证。
+MIT，见 [LICENSE](./LICENSE)。

@@ -163,4 +163,4 @@ Do implementation, validation, and commits in that worktree, not in the main che
 
 ## License
 
-Add the license your repository should use before wider distribution.
+MIT. See [LICENSE](./LICENSE).
