@@ -1,11 +1,11 @@
 ---
 name: "openspec-worktree-flow"
-description: "Use when the user wants a portable, proposal-first workflow where approved changes should be prompted into their own git worktrees before implementation. Covers OpenSpec change scaffolding, status checks, asking whether to create a worktree at the handoff to implementation, listing worktrees, and cleaning them up after merge."
+description: "Use when a repository follows OpenSpec and the work is moving from proposal approval into implementation, especially to hand off into an isolated git worktree. Covers proposal scaffolding, status checks, proactive worktree handoff when coding begins, listing worktrees, and cleaning them up after merge."
 ---
 
 # OpenSpec Worktree Flow
 
-Use this skill when the user wants to standardize or execute a reusable `OpenSpec + branch + worktree` delivery flow across repositories.
+Use this skill when the repository uses OpenSpec and the request is following a proposal-first workflow.
 
 This skill assumes:
 
@@ -18,11 +18,13 @@ This skill assumes:
 
 1. Create or update `openspec/changes/<change-id>/` first.
 2. Do not create a worktree for ideas that are still under review.
-3. After approval and before implementation starts, explicitly ask whether to create the worktree now.
-4. If the user confirms, create exactly one implementation branch and one worktree for that change.
-5. Do all code changes for that request inside the worktree, not in the main checkout.
-6. After merge, remove the worktree and optionally delete the branch.
-7. If you are unsure whether a change is ready to start or safe to clean up, run `status` first.
+3. If an approved proposal exists and the user asks to implement, write code, or start coding, use this skill immediately. Do not wait for the user to mention the skill name.
+4. At the handoff from approved proposal to implementation, explicitly ask whether to create the worktree now unless the user has already made that choice.
+5. If the user confirms, create exactly one implementation branch and one worktree for that change.
+6. `start` should carry the current checkout files into the new worktree by creating a temporary local snapshot commit from the current checkout state.
+7. Do all code changes for that request inside the worktree, not in the main checkout.
+8. After merge, remove the worktree and optionally delete the branch.
+9. If you are unsure whether a change is ready to start or safe to clean up, run `status` first.
 
 ## Script path
 
@@ -74,7 +76,7 @@ Clean up after merge:
 ## What the script does
 
 - `init`: scaffolds `proposal.md`, `tasks.md`, one spec delta file, and optional `design.md`
-- `start`: creates `codex/<change-id>` from `main`, `master`, `origin/main`, `origin/master`, or the current branch, then creates a sibling worktree named `<repo>-<change-id>`
+- `start`: creates `codex/<change-id>` from `main`, `master`, `origin/main`, `origin/master`, the current branch, or a temporary local snapshot commit when local checkout files must follow into the worktree
 - `status`: shows whether the proposal files, branch, and worktree exist and prints the next recommended step, including when to ask for worktree confirmation
 - `list`: shows existing worktrees for the repository
 - `cleanup`: removes the worktree and optionally deletes the implementation branch
@@ -87,8 +89,9 @@ Open only what you need:
 
 ## Guardrails
 
-- Treat proposal approval as the point to ask whether implementation should move into a worktree.
+- Treat proposal approval as the point to hand off into a worktree when implementation begins.
 - Worktree isolation should be recommended by default, but the user can explicitly decide whether to start it at that moment.
+- If the user has already approved the proposal and asked to start implementation, do not continue coding in the main checkout without first resolving the worktree handoff.
 - By default, `init` and `start` expect to run from the main repository checkout, not from another linked worktree.
 - If multiple requests touch the same shared module, parallelize proposals first and sequence the implementation.
 - Prefer deterministic naming:

@@ -16,21 +16,21 @@ info() {
 }
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage:
   openspec_worktree.sh init <change-id> --capability <capability> [--title <title>] [--with-design] [--allow-linked-worktree]
-  openspec_worktree.sh start <change-id> [--base <branch-or-ref>] [--worktree-dir <path>] [--allow-missing-change] [--allow-linked-worktree]
+  openspec_worktree.sh start <change-id> [--base <branch-or-ref>] [--worktree-dir <path>] [--allow-missing-change] [--allow-linked-worktree] [--no-snapshot]
   openspec_worktree.sh status <change-id>
   openspec_worktree.sh cleanup <change-id> [--worktree-dir <path>] [--remove-branch] [--force]
   openspec_worktree.sh list
 
 Commands:
   init     Scaffold an OpenSpec change in the current repository.
-  start    Create or reuse codex/<change-id> and add a sibling worktree.
+  start    Create or reuse codex/<change-id> and add a sibling worktree. When local files are dirty, use a temporary local snapshot commit by default.
   status   Show OpenSpec, branch, and worktree status for the change.
   cleanup  Remove the worktree for the change and optionally delete the branch.
   list     List worktrees for the current repository.
-EOF
+USAGE
 }
 
 require_git_repo() {
@@ -175,6 +175,39 @@ find_worktree_for_path() {
   '
 }
 
+has_local_checkout_state() {
+  ! git diff --quiet --ignore-submodules -- ||
+    ! git diff --cached --quiet --ignore-submodules -- ||
+    [[ -n "$(git ls-files --others --exclude-standard)" ]]
+}
+
+create_snapshot_commit() {
+  local change_id="$1"
+  local tmp_index=""
+  local tree=""
+  local commit=""
+  local parent=""
+
+  tmp_index="$(mktemp "${TMPDIR:-/tmp}/openspec-worktree-index.XXXXXX")"
+  trap 'rm -f "$tmp_index"' RETURN
+
+  if [[ -f "$(git rev-parse --git-path index)" ]]; then
+    cp "$(git rev-parse --git-path index)" "$tmp_index"
+  else
+    : >"$tmp_index"
+  fi
+
+  GIT_INDEX_FILE="$tmp_index" git add -A
+  tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
+  parent="$(git rev-parse HEAD)"
+  commit="$({ printf 'chore: temporary worktree snapshot for %s\n' "$change_id"; } | git commit-tree "$tree" -p "$parent")"
+
+  rm -f "$tmp_index"
+  trap - RETURN
+
+  echo "$commit"
+}
+
 recommendation_for_change() {
   local change_id="$1"
   local branch_name="codex/$change_id"
@@ -197,7 +230,7 @@ recommendation_for_change() {
   fi
 
   if [[ -z "$worktree_path" ]]; then
-    echo "Proposal artifacts exist. If implementation is about to begin, ask whether to create the worktree now, then run start after confirmation."
+    echo "Proposal artifacts exist. If the proposal is approved or the user is asking to start coding, proactively ask whether to create the worktree now, then run start after confirmation."
     return
   fi
 
@@ -208,7 +241,7 @@ write_proposal() {
   local file="$1"
   local title="$2"
 
-  cat >"$file" <<EOF
+  cat >"$file" <<EOF2
 # Change: $title
 
 ## Why
@@ -220,25 +253,25 @@ write_proposal() {
 ## Impact
 - Affected specs: [list capabilities]
 - Affected code: [list main modules or files]
-EOF
+EOF2
 }
 
 write_tasks() {
   local file="$1"
 
-  cat >"$file" <<'EOF'
+  cat >"$file" <<'EOF2'
 ## 1. Implementation
 - [ ] 1.1 Define or refine the scope after approval
 - [ ] 1.2 Implement the change
 - [ ] 1.3 Validate the affected entry or workflow
 - [ ] 1.4 Update OpenSpec artifacts to match the final implementation
-EOF
+EOF2
 }
 
 write_design() {
   local file="$1"
 
-  cat >"$file" <<'EOF'
+  cat >"$file" <<'EOF2'
 ## Context
 [Background, constraints, and stakeholders]
 
@@ -258,13 +291,13 @@ write_design() {
 
 ## Open Questions
 - [...]
-EOF
+EOF2
 }
 
 write_spec() {
   local file="$1"
 
-  cat >"$file" <<'EOF'
+  cat >"$file" <<'EOF2'
 ## ADDED Requirements
 ### Requirement: Placeholder Requirement
 The system SHALL [describe the expected behavior].
@@ -272,7 +305,7 @@ The system SHALL [describe the expected behavior].
 #### Scenario: Success case
 - **WHEN** [the triggering condition occurs]
 - **THEN** [the observable outcome happens]
-EOF
+EOF2
 }
 
 cmd_init() {
@@ -346,7 +379,10 @@ cmd_start() {
   local worktree_dir=""
   local allow_missing_change="false"
   local allow_linked_worktree="false"
+  local use_snapshot="true"
   local branch_name="codex/$change_id"
+  local start_ref=""
+  local start_from_snapshot="false"
 
   while (($#)); do
     case "$1" in
@@ -366,6 +402,10 @@ cmd_start() {
         ;;
       --allow-linked-worktree)
         allow_linked_worktree="true"
+        shift
+        ;;
+      --no-snapshot)
+        use_snapshot="false"
         shift
         ;;
       *)
@@ -414,16 +454,32 @@ cmd_start() {
 
   [[ ! -e "$worktree_dir" ]] || die "worktree path already exists on disk: $worktree_dir"
 
+  start_ref="$base_ref"
+  if [[ "$use_snapshot" == "true" && "$(has_local_checkout_state && echo yes || echo no)" == "yes" ]]; then
+    if branch_exists "$branch_name"; then
+      die "branch $branch_name already exists. Remove or rename the branch before starting with a local snapshot."
+    fi
+    start_ref="$(create_snapshot_commit "$change_id")"
+    start_from_snapshot="true"
+  fi
+
   if branch_exists "$branch_name"; then
     git worktree add "$worktree_dir" "$branch_name"
   else
-    git worktree add "$worktree_dir" -b "$branch_name" "$base_ref"
+    git worktree add "$worktree_dir" -b "$branch_name" "$start_ref"
   fi
 
   info "Created worktree:"
   info "  branch: $branch_name"
   info "  path:   $worktree_dir"
   info "  base:   $base_ref"
+  if [[ "$start_from_snapshot" == "true" ]]; then
+    info "  sync:   created from a temporary local snapshot commit"
+  elif [[ "$use_snapshot" == "false" ]]; then
+    info "  sync:   skipped by --no-snapshot"
+  else
+    info "  sync:   checkout was clean, so no snapshot was needed"
+  fi
 }
 
 cmd_status() {
@@ -530,10 +586,10 @@ main() {
     exit 1
   }
 
-  local command="$1"
+  local cmd="$1"
   shift
 
-  case "$command" in
+  case "$cmd" in
     init)
       (($# >= 1)) || die "init requires <change-id>"
       cmd_init "$@"
@@ -543,21 +599,22 @@ main() {
       cmd_start "$@"
       ;;
     status)
-      (($# >= 1)) || die "status requires <change-id>"
-      cmd_status "$@"
+      (($# == 1)) || die "status requires exactly <change-id>"
+      cmd_status "$1"
       ;;
     cleanup)
       (($# >= 1)) || die "cleanup requires <change-id>"
       cmd_cleanup "$@"
       ;;
     list)
+      (($# == 0)) || die "list takes no arguments"
       cmd_list
       ;;
     -h|--help|help)
       usage
       ;;
     *)
-      die "unknown command: $command"
+      die "unknown command: $cmd"
       ;;
   esac
 }
