@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenSpec Worktree Flow"
-  short_description: "Run proposal-first delivery in isolated worktrees"
-  default_prompt: "Use $openspec-worktree-flow to scaffold or inspect a proposal-first OpenSpec change, then move the approved change into its own implementation worktree with the standard naming flow."
+  short_description: "Run proposal-first delivery with worktree handoff prompts"
+  default_prompt: "Use $openspec-worktree-flow to scaffold or inspect a proposal-first OpenSpec change, then ask whether to create the implementation worktree when the change is ready to move from proposal to code."

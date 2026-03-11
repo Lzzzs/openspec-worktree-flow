@@ -197,7 +197,7 @@ recommendation_for_change() {
   fi
 
   if [[ -z "$worktree_path" ]]; then
-    echo "Proposal artifacts exist. If approved, run start to create the implementation worktree."
+    echo "Proposal artifacts exist. If implementation is about to begin, ask whether to create the worktree now, then run start after confirmation."
     return
   fi
 

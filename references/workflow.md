@@ -17,11 +17,12 @@ This workflow keeps requests isolated at three levels:
    - `openspec/changes/<change-id>/specs/<capability>/spec.md`
 3. Validate the proposal and get approval.
 4. Run `status <change-id>` if you need to confirm the current lifecycle state.
-5. After approval, create the implementation worktree.
-6. Implement and validate only inside that worktree.
-7. Merge the branch.
-8. Remove the worktree.
-9. Archive the OpenSpec change after deployment or when the team normally archives changes.
+5. After approval, ask whether to create the implementation worktree now.
+6. If the user confirms, create the implementation worktree.
+7. Implement and validate only inside that worktree.
+8. Merge the branch.
+9. Remove the worktree.
+10. Archive the OpenSpec change after deployment or when the team normally archives changes.
 
 ## Naming rules
 
@@ -40,13 +41,15 @@ Example:
 
 Create the worktree only after proposal approval and only when implementation is about to begin. This applies even if there is only one active request in the repository.
 
+At that handoff point, the assistant should explicitly ask whether to create the worktree now instead of silently doing it.
+
 Do not create a worktree when:
 
 - the change is still under discussion
 - the proposal may be merged into another change
 - the work is only a small documentation fix
 
-Once a change is approved and will receive implementation work, the implementation should move into a worktree instead of continuing in the main checkout.
+Once a change is approved and will receive implementation work, the assistant should recommend moving into a worktree instead of continuing in the main checkout, then wait for confirmation.
 
 ## When to keep or remove the worktree
 

@@ -8,7 +8,7 @@
 - 每个已批准的 change 对应一个 `codex/<change-id>` 分支
 - 每个实现任务对应一个独立的同级 `git worktree`
 
-它适合用于任何“提案先行”的开发流程。只要某个需求已经批准并进入实现阶段，就应该进入独立 worktree，而不是继续留在主工作区里。
+它适合用于任何“提案先行”的开发流程。在 proposal 完成、准备进入实现的那个节点，assistant 应该主动提醒“是否现在创建 worktree”，由用户来确认是否切入。
 
 ## 它解决什么问题
 
@@ -23,7 +23,7 @@
 
 1. 在主工作区创建 proposal
 2. proposal 批准后再开始实现
-3. 把已批准的需求迁入一个独立分支和 worktree 中实现
+3. 在已批准的需求进入实现前，先确认是否迁入独立分支和 worktree
 4. 合并后统一清理
 
 ## 命令
@@ -104,7 +104,17 @@ export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.
 
 如果你不确定 proposal 是否已经建好，或者 worktree 是否已经存在，先跑一次 `status`。
 
-### 3. proposal 批准后开始实现
+### 3. proposal 批准后先确认是否切入 worktree
+
+当 proposal 已完成、代码实现即将开始时，应先做一次确认，而不是直接创建 worktree。
+
+示例：
+
+```text
+提案已经准备好了。现在要为 add-rrweb-recording 创建实现用 worktree 吗？
+```
+
+### 4. 用户确认后开始实现
 
 ```bash
 "$OWF" start add-rrweb-recording
@@ -115,7 +125,7 @@ export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.
 - 分支：`codex/add-rrweb-recording`
 - worktree：`../<repo>-add-rrweb-recording`
 
-### 4. 在 worktree 中开发
+### 5. 在 worktree 中开发
 
 示例：
 
@@ -123,9 +133,9 @@ export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.
 cd ../your-repo-add-rrweb-recording
 ```
 
-所有实现、验证和提交都应该在这个 worktree 里完成，而不是在主工作区里进行。即使当前仓库里只有这一个需求，也应该这样做。
+如果用户确认切入 worktree，那么后续实现、验证和提交都应该在这个 worktree 里完成，而不是在主工作区里进行。
 
-### 5. 合并后清理
+### 6. 合并后清理
 
 ```bash
 "$OWF" cleanup add-rrweb-recording --remove-branch
@@ -134,7 +144,8 @@ cd ../your-repo-add-rrweb-recording
 ## 保护规则
 
 - `init` 和 `start` 默认要求在主工作区执行，而不是在已有 linked worktree 中执行
-- 只要需求已批准并开始实现，就应该迁入 worktree，而不是继续在主工作区开发
+- proposal 准备转入实现时，应先提醒用户是否现在创建 worktree
+- 如果用户确认切入 worktree，后续实现不应继续停留在主工作区
 - `change-id` 和 capability 名称必须是 kebab-case
 - 如果目标分支已经在别的 worktree 中检出，`start` 会直接失败
 - `cleanup` 不允许删除当前所在工作区

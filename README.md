@@ -8,7 +8,7 @@
 - one `codex/<change-id>` branch per approved change
 - one sibling `git worktree` per implementation
 
-It is designed for teams that want approved implementation work to happen outside the main checkout. That includes both single-request and multi-request development.
+It is designed for teams that want a clear handoff from proposal to implementation. At that handoff point, the assistant should remind the user that worktree isolation is recommended and ask whether to create the worktree now.
 
 ## What problem it solves
 
@@ -23,7 +23,7 @@ This skill standardizes the flow:
 
 1. create proposal artifacts in the main checkout
 2. get approval
-3. move the approved change into one isolated branch and worktree for implementation
+3. ask whether to move the approved change into one isolated branch and worktree for implementation
 4. clean up after merge
 
 ## Commands
@@ -104,7 +104,17 @@ This creates:
 
 Use `status` before `start` if you want to confirm that the proposal exists and the implementation worktree has not already been created.
 
-### 3. Start implementation after approval
+### 3. Confirm the worktree handoff after approval
+
+When the proposal is complete and implementation is about to begin, prompt for confirmation before creating the worktree.
+
+Example:
+
+```text
+The proposal is ready. Do you want to create the implementation worktree for add-rrweb-recording now?
+```
+
+### 4. Start implementation after confirmation
 
 ```bash
 "$OWF" start add-rrweb-recording
@@ -115,7 +125,7 @@ By default this creates:
 - branch: `codex/add-rrweb-recording`
 - worktree: `../<repo>-add-rrweb-recording`
 
-### 4. Develop inside the worktree
+### 5. Develop inside the worktree
 
 Example:
 
@@ -123,9 +133,9 @@ Example:
 cd ../your-repo-add-rrweb-recording
 ```
 
-Do implementation, validation, and commits in that worktree, not in the main checkout. This is the default path even when only one request is active.
+Do implementation, validation, and commits in that worktree, not in the main checkout.
 
-### 5. Clean up after merge
+### 6. Clean up after merge
 
 ```bash
 "$OWF" cleanup add-rrweb-recording --remove-branch
@@ -134,7 +144,8 @@ Do implementation, validation, and commits in that worktree, not in the main che
 ## Guardrails
 
 - `init` and `start` default to the main checkout, not an existing linked worktree
-- approved implementation work should move into a worktree instead of staying in the main checkout
+- when a proposal is ready to turn into code, ask whether to create the implementation worktree
+- if the user confirms, implementation should move into the worktree instead of staying in the main checkout
 - `change-id` and capability names must be kebab-case
 - `start` fails if the branch is already checked out elsewhere
 - `cleanup` refuses to remove the current checkout
