@@ -1,5 +1,7 @@
 # openspec-worktree-flow
 
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 `openspec-worktree-flow` is a Codex skill for running a proposal-first workflow with:
 
 - one OpenSpec change per request
