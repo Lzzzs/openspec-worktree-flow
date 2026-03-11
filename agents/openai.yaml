@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenSpec Worktree Flow"
-  short_description: "Move approved OpenSpec changes into synced worktrees"
-  default_prompt: "Use $openspec-worktree-flow when an OpenSpec change is being scaffolded, inspected, or handed off from approved proposal to implementation. At implementation handoff, proactively ask whether to create the worktree now, then start it so current proposal files are available in the new workspace."
+  short_description: "Move approved OpenSpec changes into smart worktrees"
+  default_prompt: "Use $openspec-worktree-flow when an OpenSpec change is being scaffolded, inspected, or handed off from approved proposal to implementation. At implementation handoff, proactively ask whether to create the worktree now, then start it with a migration-rules library so lightweight context is copied and heavy local directories are symlinked when needed."

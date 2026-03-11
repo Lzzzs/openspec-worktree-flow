@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/migration_rules.sh"
+
 die() {
   echo "Error: $*" >&2
   exit 1
@@ -26,7 +28,7 @@ Usage:
 
 Commands:
   init     Scaffold an OpenSpec change in the current repository.
-  start    Create or reuse codex/<change-id> and add a sibling worktree. When local files are dirty, use a temporary local snapshot commit by default.
+  start    Create or reuse codex/<change-id> and add a sibling worktree. When local files are dirty, use a temporary local snapshot commit by default, then apply selective migration rules from `scripts/migration_rules.sh`.
   status   Show OpenSpec, branch, and worktree status for the change.
   cleanup  Remove the worktree for the change and optionally delete the branch.
   list     List worktrees for the current repository.
@@ -208,6 +210,76 @@ create_snapshot_commit() {
   echo "$commit"
 }
 
+copy_path_into_worktree() {
+  local source_root="$1"
+  local target_root="$2"
+  local rel_path="$3"
+  local source_path="$source_root/$rel_path"
+  local target_path="$target_root/$rel_path"
+
+  [[ -e "$source_path" ]] || return
+
+  rm -rf "$target_path"
+  mkdir -p "$(dirname "$target_path")"
+
+  if command -v rsync >/dev/null 2>&1; then
+    if [[ -d "$source_path" ]]; then
+      mkdir -p "$target_path"
+      rsync -a --delete --exclude='.git' "$source_path/" "$target_path/"
+    else
+      rsync -a --exclude='.git' "$source_path" "$target_path"
+    fi
+  elif [[ -d "$source_path" ]]; then
+    cp -R "$source_path" "$target_path"
+  else
+    cp "$source_path" "$target_path"
+  fi
+}
+
+symlink_path_into_worktree() {
+  local source_root="$1"
+  local target_root="$2"
+  local rel_path="$3"
+  local source_path="$source_root/$rel_path"
+  local target_path="$target_root/$rel_path"
+
+  [[ -e "$source_path" ]] || return
+  [[ -e "$target_path" || -L "$target_path" ]] && return
+
+  mkdir -p "$(dirname "$target_path")"
+  ln -s "$source_path" "$target_path"
+}
+
+apply_migration_rules() {
+  local source_root="$1"
+  local target_root="$2"
+  local copied=()
+  local linked=()
+  local rel_path=""
+
+  for rel_path in "${COPY_PATHS[@]}"; do
+    if [[ -e "$source_root/$rel_path" ]]; then
+      copy_path_into_worktree "$source_root" "$target_root" "$rel_path"
+      copied+=("$rel_path")
+    fi
+  done
+
+  for rel_path in "${SYMLINK_PATHS[@]}"; do
+    if [[ -e "$source_root/$rel_path" && ! -e "$target_root/$rel_path" && ! -L "$target_root/$rel_path" ]]; then
+      symlink_path_into_worktree "$source_root" "$target_root" "$rel_path"
+      linked+=("$rel_path")
+    fi
+  done
+
+  if ((${#copied[@]} > 0)); then
+    info "  copied: $(IFS=', '; echo "${copied[*]}")"
+  fi
+
+  if ((${#linked[@]} > 0)); then
+    info "  linked: $(IFS=', '; echo "${linked[*]}")"
+  fi
+}
+
 recommendation_for_change() {
   local change_id="$1"
   local branch_name="codex/$change_id"
@@ -383,6 +455,7 @@ cmd_start() {
   local branch_name="codex/$change_id"
   local start_ref=""
   local start_from_snapshot="false"
+  local source_root=""
 
   while (($#)); do
     case "$1" in
@@ -417,6 +490,8 @@ cmd_start() {
   require_git_repo
   require_main_checkout "$allow_linked_worktree"
   validate_kebab "change-id" "$change_id"
+
+  source_root="$(repo_root)"
 
   if [[ -d "$(openspec_root)" ]]; then
     if ! change_exists "$change_id"; then
@@ -468,6 +543,8 @@ cmd_start() {
   else
     git worktree add "$worktree_dir" -b "$branch_name" "$start_ref"
   fi
+
+  apply_migration_rules "$source_root" "$worktree_dir"
 
   info "Created worktree:"
   info "  branch: $branch_name"

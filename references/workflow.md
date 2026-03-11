@@ -21,10 +21,13 @@ This workflow keeps requests isolated at three levels:
 6. Ask whether to create the implementation worktree now unless the user already made that decision explicitly.
 7. If the user confirms, create the implementation worktree.
 8. `start` should create the worktree from a temporary local snapshot commit when local checkout files need to follow into the new worktree.
-9. Implement and validate only inside that worktree.
-10. Merge the branch.
-11. Remove the worktree.
-12. Archive the OpenSpec change after deployment or when the team normally archives changes.
+9. After creating the worktree, apply selective migration rules from `scripts/migration_rules.sh`:
+   - copy lightweight ignored context such as `openspec/`
+   - symlink heavyweight local-only directories such as `node_modules/`
+10. Implement and validate only inside that worktree.
+11. Merge the branch.
+12. Remove the worktree.
+13. Archive the OpenSpec change after deployment or when the team normally archives changes.
 
 ## Naming rules
 
@@ -55,18 +58,19 @@ Do not create a worktree when:
 
 Once a change is approved and will receive implementation work, the assistant should recommend moving into a worktree instead of continuing in the main checkout, then wait for confirmation.
 
-## Snapshot behavior when starting
+## Migration behavior when starting
 
 `start` creates the branch and worktree first from a clean base when the checkout is clean.
 
-If the current checkout contains local changes that should follow into the worktree, `start` creates a temporary local snapshot commit from the current checkout state and uses that commit as the worktree base. This is intended to carry over:
+If the current checkout contains local changes that should follow into the worktree, `start` creates a temporary local snapshot commit from the current checkout state and uses that commit as the worktree base. This is intended to carry over tracked edits and untracked files that are not ignored.
 
-- uncommitted proposal files
-- staged file contents that are present in the working tree
-- unstaged tracked edits
-- untracked files that are not ignored
+Ignored paths need explicit handling. The script should apply selective migration rules after worktree creation, and the default rules should live in `scripts/migration_rules.sh`:
 
-This snapshot is local-only and does not push anything. The new worktree starts with the right files, while the original checkout keeps its existing working tree and staging state.
+- `openspec/` should be copied directly when it exists in the source checkout
+- `node_modules/` should be symlinked when it exists in the source checkout and is absent in the worktree
+- future special-case paths should follow the same principle: copy lightweight context, symlink heavyweight local caches
+
+This migration is local-only and does not push anything. The new worktree starts with the right files, while the original checkout keeps its existing working tree and staging state.
 
 ## When to keep or remove the worktree
 

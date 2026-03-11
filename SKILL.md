@@ -1,6 +1,6 @@
 ---
 name: "openspec-worktree-flow"
-description: "Use when a repository follows OpenSpec and the work is moving from proposal approval into implementation, especially to hand off into an isolated git worktree. Covers proposal scaffolding, status checks, proactive worktree handoff when coding begins, listing worktrees, and cleaning them up after merge."
+description: "Use when a repository follows OpenSpec and the work is moving from proposal approval into implementation, especially to hand off into an isolated git worktree. Covers proposal scaffolding, status checks, proactive worktree handoff when coding begins, a reusable migration-rules library for worktrees, listing worktrees, and cleaning them up after merge."
 ---
 
 # OpenSpec Worktree Flow
@@ -21,10 +21,13 @@ This skill assumes:
 3. If an approved proposal exists and the user asks to implement, write code, or start coding, use this skill immediately. Do not wait for the user to mention the skill name.
 4. At the handoff from approved proposal to implementation, explicitly ask whether to create the worktree now unless the user has already made that choice.
 5. If the user confirms, create exactly one implementation branch and one worktree for that change.
-6. `start` should carry the current checkout files into the new worktree by creating a temporary local snapshot commit from the current checkout state.
-7. Do all code changes for that request inside the worktree, not in the main checkout.
-8. After merge, remove the worktree and optionally delete the branch.
-9. If you are unsure whether a change is ready to start or safe to clean up, run `status` first.
+6. `start` should carry the current checkout files into the new worktree by combining a temporary local snapshot commit with selective migration rules.
+7. Prefer direct copy for lightweight ignored context such as `openspec/`.
+8. Maintain copy and symlink decisions in the migration-rules library at `scripts/migration_rules.sh`.
+9. Prefer symlinks for heavyweight local-only directories such as `node_modules/`.
+10. Do all code changes for that request inside the worktree, not in the main checkout.
+11. After merge, remove the worktree and optionally delete the branch.
+12. If you are unsure whether a change is ready to start or safe to clean up, run `status` first.
 
 ## Script path
 
@@ -76,7 +79,7 @@ Clean up after merge:
 ## What the script does
 
 - `init`: scaffolds `proposal.md`, `tasks.md`, one spec delta file, and optional `design.md`
-- `start`: creates `codex/<change-id>` from `main`, `master`, `origin/main`, `origin/master`, the current branch, or a temporary local snapshot commit when local checkout files must follow into the worktree
+- `start`: creates `codex/<change-id>` from `main`, `master`, `origin/main`, `origin/master`, the current branch, or a temporary local snapshot commit when local checkout files must follow into the worktree, then applies selective migration rules from `scripts/migration_rules.sh`
 - `status`: shows whether the proposal files, branch, and worktree exist and prints the next recommended step, including when to ask for worktree confirmation
 - `list`: shows existing worktrees for the repository
 - `cleanup`: removes the worktree and optionally deletes the implementation branch
