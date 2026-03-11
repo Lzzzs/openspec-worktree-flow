@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Worktree Flow"
+  short_description: "Run proposal-first parallel delivery with worktrees"
+  default_prompt: "Use $openspec-worktree-flow to scaffold or inspect a proposal-first OpenSpec change, then create or clean up the isolated implementation worktree with the standard naming flow."
