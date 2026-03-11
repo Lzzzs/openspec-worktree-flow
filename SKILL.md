@@ -1,6 +1,6 @@
 ---
 name: "openspec-worktree-flow"
-description: "Use when the user wants a portable, proposal-first workflow for running multiple changes in parallel with OpenSpec, isolated branches, and git worktrees. Covers scaffolding change proposals, creating one worktree per approved change, listing active worktrees, and cleaning them up after merge."
+description: "Use when the user wants a portable, proposal-first workflow where every approved change moves into its own git worktree before implementation. Covers OpenSpec change scaffolding, creating one worktree per approved change, listing worktrees, and cleaning them up after merge."
 ---
 
 # OpenSpec Worktree Flow
@@ -12,7 +12,7 @@ This skill assumes:
 - one request or feature maps to one OpenSpec change
 - proposal work happens in the main repository checkout
 - implementation starts only after proposal approval
-- each approved change gets its own `codex/<change-id>` branch and sibling worktree
+- every approved change gets its own `codex/<change-id>` branch and sibling worktree, even if it is the only active change
 
 ## Quick rules
 
@@ -87,6 +87,7 @@ Open only what you need:
 ## Guardrails
 
 - Treat proposal approval as the gate to create a worktree.
+- Worktree isolation is the default implementation mode, not just a parallel-development fallback.
 - By default, `init` and `start` expect to run from the main repository checkout, not from another linked worktree.
 - If multiple requests touch the same shared module, parallelize proposals first and sequence the implementation.
 - Prefer deterministic naming:

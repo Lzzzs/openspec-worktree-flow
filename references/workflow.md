@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This workflow keeps parallel requests isolated at three levels:
+This workflow keeps requests isolated at three levels:
 
 - spec isolation: one OpenSpec change per request
 - branch isolation: one `codex/<change-id>` branch per request
@@ -38,13 +38,15 @@ Example:
 
 ## When to create the worktree
 
-Create the worktree only after proposal approval and only when implementation is about to begin.
+Create the worktree only after proposal approval and only when implementation is about to begin. This applies even if there is only one active request in the repository.
 
 Do not create a worktree when:
 
 - the change is still under discussion
 - the proposal may be merged into another change
 - the work is only a small documentation fix
+
+Once a change is approved and will receive implementation work, the implementation should move into a worktree instead of continuing in the main checkout.
 
 ## When to keep or remove the worktree
 

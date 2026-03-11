@@ -8,11 +8,11 @@
 - 每个已批准的 change 对应一个 `codex/<change-id>` 分支
 - 每个实现任务对应一个独立的同级 `git worktree`
 
-它适合用于同一个仓库里并行推进多个需求，但又不希望 proposal、实现和清理工作相互污染的场景。
+它适合用于任何“提案先行”的开发流程。只要某个需求已经批准并进入实现阶段，就应该进入独立 worktree，而不是继续留在主工作区里。
 
 ## 它解决什么问题
 
-当一个仓库里同时跑多个需求时，团队很容易遇到这些问题：
+团队经常会遇到这些问题：
 
 - 多个需求共用一个分支
 - proposal 还没稳定就开始写实现
@@ -23,7 +23,7 @@
 
 1. 在主工作区创建 proposal
 2. proposal 批准后再开始实现
-3. 每个需求创建一个独立分支和 worktree
+3. 把已批准的需求迁入一个独立分支和 worktree 中实现
 4. 合并后统一清理
 
 ## 命令
@@ -123,7 +123,7 @@ export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.
 cd ../your-repo-add-rrweb-recording
 ```
 
-所有实现、验证和提交都应该在这个 worktree 里完成，而不是在主工作区里进行。
+所有实现、验证和提交都应该在这个 worktree 里完成，而不是在主工作区里进行。即使当前仓库里只有这一个需求，也应该这样做。
 
 ### 5. 合并后清理
 
@@ -134,6 +134,7 @@ cd ../your-repo-add-rrweb-recording
 ## 保护规则
 
 - `init` 和 `start` 默认要求在主工作区执行，而不是在已有 linked worktree 中执行
+- 只要需求已批准并开始实现，就应该迁入 worktree，而不是继续在主工作区开发
 - `change-id` 和 capability 名称必须是 kebab-case
 - 如果目标分支已经在别的 worktree 中检出，`start` 会直接失败
 - `cleanup` 不允许删除当前所在工作区
