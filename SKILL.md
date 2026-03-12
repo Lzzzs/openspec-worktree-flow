@@ -1,88 +1,55 @@
 ---
 name: "openspec-worktree-flow"
-description: "Use when a repository follows OpenSpec and the work is moving from proposal approval into implementation, especially to hand off into an isolated git worktree. Covers proposal scaffolding, status checks, proactive worktree handoff when coding begins, a reusable migration-rules library for worktrees, listing worktrees, and cleaning them up after merge."
+description: "Use when a Codex repository relies on OpenSpec proposals and the work is moving from approved change to implementation in an isolated git worktree. Covers bootstrapping repositories with `owf init`, inspecting lifecycle state, starting implementation worktrees, applying migration rules, and cleaning up after merge."
 ---
 
 # OpenSpec Worktree Flow
 
-Use this skill when the repository uses OpenSpec and the request is following a proposal-first workflow.
-
-This skill assumes:
-
-- one request or feature maps to one OpenSpec change
-- proposal work happens in the main repository checkout
-- implementation starts only after proposal approval
-- approved changes should normally move into their own `codex/<change-id>` branch and sibling worktree at the handoff to implementation, even if it is the only active change
+Use this skill when a repository already uses OpenSpec for proposals, but Codex needs to manage the handoff from approved change to implementation worktree.
 
 ## Quick rules
 
-1. Create or update `openspec/changes/<change-id>/` first.
-2. Do not create a worktree for ideas that are still under review.
-3. If an approved proposal exists and the user asks to implement, write code, or start coding, use this skill immediately. Do not wait for the user to mention the skill name.
-4. At the handoff from approved proposal to implementation, explicitly ask whether to create the worktree now unless the user has already made that choice.
-5. If the user confirms, create exactly one implementation branch and one worktree for that change.
-6. `start` should carry the current checkout files into the new worktree by combining a temporary local snapshot commit with selective migration rules.
-7. Prefer direct copy for lightweight ignored context such as `openspec/`.
-8. Maintain copy and symlink decisions in the migration-rules library at `scripts/migration_rules.sh`.
-9. Prefer symlinks for heavyweight local-only directories such as `node_modules/`.
-10. Do all code changes for that request inside the worktree, not in the main checkout.
-11. After merge, remove the worktree and optionally delete the branch.
-12. If you are unsure whether a change is ready to start or safe to clean up, run `status` first.
-
-## Script path
-
-When installed as a user skill:
-
-```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.sh"
-```
-
-For the draft in a repository checkout:
-
-```bash
-export OWF="$(pwd)/codex-skills/openspec-worktree-flow/scripts/openspec_worktree.sh"
-```
+1. Treat `owf init` as the repository bootstrap step. It should keep `AGENTS.md` and `.owf/migration_rules.sh` in place.
+2. Proposal work stays in the main checkout.
+3. If an approved proposal exists and the user asks to implement, write code, or continue implementation, resolve worktree handoff before coding in the main checkout.
+4. The repository-level `AGENTS.md` block is the strongest trigger for proactive behavior. Keep it synced through `owf init` or `owf sync-agents`.
+5. Ask whether to create the implementation worktree now unless the user already made that choice explicitly.
+6. After confirmation, use `owf start <change-id>` and do implementation work in the sibling worktree.
+7. Prefer repo-local migration rules from `.owf/migration_rules.sh`; fall back to the bundled defaults only when the repository has not been bootstrapped yet.
+8. Clean up with `owf cleanup <change-id> --remove-branch` after merge when the worktree is no longer needed.
 
 ## Commands
 
-Initialize a change scaffold:
+Bootstrap the repository:
 
 ```bash
-"$OWF" init add-rrweb-recording --capability recording --title "rrweb 录制 MVP" --with-design
+owf init
 ```
 
-Start implementation after user confirmation:
+Check lifecycle state:
 
 ```bash
-"$OWF" start add-rrweb-recording
+owf status add-rrweb-recording
 ```
 
-Inspect lifecycle state:
+Start implementation after confirmation:
 
 ```bash
-"$OWF" status add-rrweb-recording
-```
-
-List worktrees:
-
-```bash
-"$OWF" list
+owf start add-rrweb-recording
 ```
 
 Clean up after merge:
 
 ```bash
-"$OWF" cleanup add-rrweb-recording --remove-branch
+owf cleanup add-rrweb-recording --remove-branch
 ```
 
-## What the script does
+Advanced:
 
-- `init`: scaffolds `proposal.md`, `tasks.md`, one spec delta file, and optional `design.md`
-- `start`: creates `codex/<change-id>` from `main`, `master`, `origin/main`, `origin/master`, the current branch, or a temporary local snapshot commit when local checkout files must follow into the worktree, then applies selective migration rules from `scripts/migration_rules.sh`
-- `status`: shows whether the proposal files, branch, and worktree exist and prints the next recommended step, including when to ask for worktree confirmation
-- `list`: shows existing worktrees for the repository
-- `cleanup`: removes the worktree and optionally deletes the implementation branch
+```bash
+owf sync-agents
+owf change-init add-rrweb-recording --capability recording --title "rrweb 录制 MVP"
+```
 
 ## References
 
@@ -92,14 +59,7 @@ Open only what you need:
 
 ## Guardrails
 
-- Treat proposal approval as the point to hand off into a worktree when implementation begins.
-- Worktree isolation should be recommended by default, but the user can explicitly decide whether to start it at that moment.
-- If the user has already approved the proposal and asked to start implementation, do not continue coding in the main checkout without first resolving the worktree handoff.
-- By default, `init` and `start` expect to run from the main repository checkout, not from another linked worktree.
-- If multiple requests touch the same shared module, parallelize proposals first and sequence the implementation.
-- Prefer deterministic naming:
-  - change: `<change-id>`
-  - branch: `codex/<change-id>`
-  - worktree dir: `../<repo>-<change-id>`
-- `change-id` and capability names should be kebab-case.
-- If the repository does not contain `openspec/`, `start` can still create the branch and worktree, but `init` requires OpenSpec to exist.
+- Worktree isolation should be recommended by default once implementation begins.
+- If the proposal is approved and the user asks to start coding, do not continue in the main checkout without first resolving the handoff.
+- `owf start` should normally run from the main checkout, not from an existing linked worktree.
+- `change-id` and capability names should remain kebab-case.

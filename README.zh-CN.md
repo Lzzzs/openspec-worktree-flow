@@ -2,177 +2,123 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-`openspec-worktree-flow` 是一个 Codex skill，用来运行一套“提案优先”的工作流，核心约束是：
+`openspec-worktree-flow` 现在对外提供的是 `owf` CLI。它专门服务 Codex，用来把已经批准的 OpenSpec change 平滑切换到独立 worktree 中实现。
 
-- 一个需求对应一个 OpenSpec change
-- 每个已批准的 change 对应一个 `codex/<change-id>` 分支
-- 每个实现任务对应一个独立的同级 `git worktree`
+它适合这样的团队：
 
-它适合用于任何“提案先行”的开发流程。在 proposal 完成、准备进入实现的那个节点，assistant 应该主动提醒“是否现在创建 worktree”，由用户来确认是否切入。
+- proposal / spec 仍然走 OpenSpec
+- 但希望用一套独立、稳定的方式来完成“仓库初始化 + 实现切 worktree”这段流程
 
-## 它解决什么问题
+## 用户怎么用
 
-团队经常会遇到这些问题：
-
-- 多个需求共用一个分支
-- proposal 还没稳定就开始写实现
-- 主工作区堆积了多个需求的半成品改动
-- 合并后遗留一堆 worktree 和本地分支没有清理
-
-这个 skill 把流程统一成：
-
-1. 在主工作区创建 proposal
-2. proposal 批准后再开始实现
-3. 在已批准的需求进入实现前，先确认是否迁入独立分支和 worktree
-4. 合并后统一清理
-
-## 命令
-
-这个 skill 暴露的是一个脚本：
+用户只需要记住一个命令：
 
 ```bash
-openspec_worktree.sh
+owf init
 ```
 
-支持的命令有：
+之后流程就是：
 
-- `init`：初始化一个 OpenSpec change
-- `status`：查看某个 change 当前的 proposal / branch / worktree 状态
-- `start`：创建实现分支和 worktree
-- `list`：列出当前仓库的 worktree
-- `cleanup`：清理 worktree，并可选删除分支
+1. 正常走仓库里的 OpenSpec proposal 流程
+2. proposal 批准
+3. 用户让 Codex 开始实现
+4. Codex 看到 `AGENTS.md` 里的 handoff 规则，主动问是否现在创建实现 worktree
 
-## 安装到 Codex
+## 安装
 
-### 方式一：复制到 Codex skills 目录
-
-把这个仓库安装到：
+全局安装：
 
 ```bash
-$HOME/.codex/skills/openspec-worktree-flow
+npm install -g openspec-worktree-flow
 ```
 
-如果仓库已经在本地，可以直接执行：
+一次性使用：
 
 ```bash
-bash scripts/install_to_codex_home.sh
+npx openspec-worktree-flow init
 ```
 
-如果要覆盖已有安装：
+如果是维护者，仍然可以把它安装成 Codex skill：
 
 ```bash
 bash scripts/install_to_codex_home.sh --force
 ```
 
-安装或更新后，重启 Codex。
+## 命令
 
-### 方式二：直接从本地仓库运行脚本
+- `owf init [repo-path]`：初始化仓库，更新 `AGENTS.md` 并创建 `.owf/migration_rules.sh`
+- `owf status <change-id>`：查看 proposal / branch / worktree 状态
+- `owf start <change-id>`：创建实现分支和同级 worktree
+- `owf cleanup <change-id>`：清理 worktree，并可选删除分支
+- `owf list`：查看当前仓库的 worktree
 
-如果你只是想先试用工作流，而不想先安装到 Codex：
+高级命令：
 
-```bash
-export OWF="$(pwd)/scripts/openspec_worktree.sh"
-```
+- `owf sync-agents [repo-path]`：只刷新 `AGENTS.md` 里的受管控区块
+- `owf change-init <change-id> ...`：调用底层引擎创建 OpenSpec change 骨架
 
-## 标准工作流
+## 仓库初始化
 
-先设置脚本路径：
-
-```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.sh"
-```
-
-### 1. 在主工作区创建 proposal
+每个仓库只需要跑一次：
 
 ```bash
-"$OWF" init add-rrweb-recording --capability recording --title "rrweb recording MVP" --with-design
+owf init
 ```
 
-这会创建：
+它会做两件事：
 
-- `openspec/changes/add-rrweb-recording/proposal.md`
-- `openspec/changes/add-rrweb-recording/tasks.md`
-- `openspec/changes/add-rrweb-recording/design.md`
-- `openspec/changes/add-rrweb-recording/specs/recording/spec.md`
+- 注入或刷新 `AGENTS.md` 的 managed block，让 Codex 在实现开始前必须先处理 worktree handoff
+- 创建 `.owf/migration_rules.sh`，作为仓库自己的迁移规则文件，控制哪些路径复制、哪些路径软链
 
-### 2. 查看状态
+默认迁移规则是：
+
+- 复制 `openspec/`
+- 软链 `node_modules/`
+
+如果团队有自己的需要，直接修改仓库里的 `.owf/migration_rules.sh` 就行，不需要改全局安装包。
+
+## 实现切换
+
+当 proposal 已批准、用户开始要求实现时，Codex 应先确认是否创建 worktree。
+
+确认后执行：
 
 ```bash
-"$OWF" status add-rrweb-recording
+owf start add-rrweb-recording
 ```
 
-如果你不确定 proposal 是否已经建好，或者 worktree 是否已经存在，先跑一次 `status`。
-
-### 3. proposal 批准后先确认是否切入 worktree
-
-当 proposal 已完成、代码实现即将开始时，应先做一次确认，而不是直接创建 worktree。
-
-示例：
-
-```text
-提案已经准备好了。现在要为 add-rrweb-recording 创建实现用 worktree 吗？
-```
-
-### 4. 用户确认后开始实现
-
-```bash
-"$OWF" start add-rrweb-recording
-```
-
-默认会创建：
+默认会生成：
 
 - 分支：`codex/add-rrweb-recording`
 - worktree：`../<repo>-add-rrweb-recording`
 
-### 5. 在 worktree 中开发
+## 清理
 
-示例：
-
-```bash
-cd ../your-repo-add-rrweb-recording
-```
-
-如果用户确认切入 worktree，那么后续实现、验证和提交都应该在这个 worktree 里完成，而不是在主工作区里进行。
-
-### 6. 合并后清理
+合并完成后：
 
 ```bash
-"$OWF" cleanup add-rrweb-recording --remove-branch
+owf cleanup add-rrweb-recording --remove-branch
 ```
-
-## 保护规则
-
-- `init` 和 `start` 默认要求在主工作区执行，而不是在已有 linked worktree 中执行
-- proposal 准备转入实现时，应先提醒用户是否现在创建 worktree
-- 如果用户确认切入 worktree，后续实现不应继续停留在主工作区
-- `change-id` 和 capability 名称必须是 kebab-case
-- 如果目标分支已经在别的 worktree 中检出，`start` 会直接失败
-- `cleanup` 不允许删除当前所在工作区
-- `init` 要求仓库中存在 `openspec/`
-- 即使没有 `openspec/`，`start` 仍可工作，但除非显式允许，否则会发出警告
 
 ## 仓库结构
 
 ```text
 .
+├── bin/
+│   └── owf.js
+├── package.json
 ├── SKILL.md
-├── README.md
-├── README.zh-CN.md
 ├── agents/
 │   └── openai.yaml
 ├── references/
 │   └── workflow.md
+├── templates/
+│   └── agents_worktree_handoff.md
 └── scripts/
     ├── install_to_codex_home.sh
+    ├── migration_rules.sh
     └── openspec_worktree.sh
 ```
-
-## 版本管理
-
-- 命令行为发生变化时打 tag 发布
-- 脚本参数变化应视为一个需要版本管理的接口变化
-- 拉取新版本后，记得更新本地安装到 Codex 的 skill
 
 ## License
 

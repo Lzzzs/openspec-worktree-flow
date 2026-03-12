@@ -2,176 +2,120 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-`openspec-worktree-flow` is a Codex skill for running a proposal-first workflow with:
+`openspec-worktree-flow` provides the `owf` CLI, a Codex-focused workflow for handing approved OpenSpec changes off into isolated worktrees.
 
-- one OpenSpec change per request
-- one `codex/<change-id>` branch per approved change
-- one sibling `git worktree` per implementation
+It is designed for teams that already use OpenSpec for proposal/spec work, but want a separate, predictable way to bootstrap repository guidance and move implementation into sibling worktrees.
 
-It is designed for teams that want a clear handoff from proposal to implementation. At that handoff point, the assistant should remind the user that worktree isolation is recommended and ask whether to create the worktree now.
+## User flow
 
-## What problem it solves
-
-Teams often run into the same failures:
-
-- several requests share one branch
-- work starts before the proposal is stable
-- the main checkout accumulates partial implementation changes
-- stale worktrees and local branches are left behind after merge
-
-This skill standardizes the flow:
-
-1. create proposal artifacts in the main checkout
-2. get approval
-3. ask whether to move the approved change into one isolated branch and worktree for implementation
-4. clean up after merge
-
-## Commands
-
-The skill exposes one script:
+Users only need to remember one command:
 
 ```bash
-openspec_worktree.sh
+owf init
 ```
 
-Supported commands:
+After that:
 
-- `init`: scaffold an OpenSpec change
-- `status`: inspect proposal, branch, and worktree state for a change
-- `start`: create the implementation branch and worktree
-- `list`: list repository worktrees
-- `cleanup`: remove the worktree and optionally delete the branch
+1. keep using the repository's normal OpenSpec proposal flow
+2. approve the change
+3. ask Codex to implement
+4. Codex sees the `AGENTS.md` handoff rule and asks whether to create the implementation worktree
 
-## Install into Codex
+## Install
 
-### Option 1: copy into Codex skills
-
-Install this repository into:
+Global install:
 
 ```bash
-$HOME/.codex/skills/openspec-worktree-flow
+npm install -g openspec-worktree-flow
 ```
 
-If the repository is already checked out locally:
+One-off use:
 
 ```bash
-bash scripts/install_to_codex_home.sh
+npx openspec-worktree-flow init
 ```
 
-To replace an existing install:
+Codex skill install for maintainers is still supported through:
 
 ```bash
 bash scripts/install_to_codex_home.sh --force
 ```
 
-Restart Codex after installing or updating the skill.
+## Commands
 
-### Option 2: use the script directly from a local checkout
+- `owf init [repo-path]`: bootstrap the repository by updating `AGENTS.md` and creating `.owf/migration_rules.sh`
+- `owf status <change-id>`: inspect proposal / branch / worktree state
+- `owf start <change-id>`: create the implementation branch and sibling worktree
+- `owf cleanup <change-id>`: remove the worktree and optionally the branch
+- `owf list`: list worktrees for the current repository
 
-If you just want to try the workflow without installing the skill into Codex:
+Advanced:
 
-```bash
-export OWF="$(pwd)/scripts/openspec_worktree.sh"
-```
+- `owf sync-agents [repo-path]`: refresh only the managed `AGENTS.md` block
+- `owf change-init <change-id> ...`: scaffold OpenSpec change files with the legacy engine
 
-## Standard workflow
+## Repository bootstrap
 
-Set the script path:
-
-```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-export OWF="$CODEX_HOME/skills/openspec-worktree-flow/scripts/openspec_worktree.sh"
-```
-
-### 1. Create proposal artifacts in the main checkout
+Run once per repository:
 
 ```bash
-"$OWF" init add-rrweb-recording --capability recording --title "rrweb recording MVP" --with-design
+owf init
 ```
 
-This creates:
+This does two things:
 
-- `openspec/changes/add-rrweb-recording/proposal.md`
-- `openspec/changes/add-rrweb-recording/tasks.md`
-- `openspec/changes/add-rrweb-recording/design.md`
-- `openspec/changes/add-rrweb-recording/specs/recording/spec.md`
+- injects or refreshes a managed `AGENTS.md` block that tells Codex to resolve worktree handoff before implementation starts in the main checkout
+- creates `.owf/migration_rules.sh`, the repo-local migration rules file that controls what gets copied or symlinked into new worktrees
 
-### 2. Inspect status
+Default migration rules:
+
+- copy `openspec/`
+- symlink `node_modules/`
+
+Teams can edit `.owf/migration_rules.sh` per repository without modifying the global package.
+
+## Implementation handoff
+
+Once a proposal is approved and the user asks to implement, Codex should ask whether to create the worktree now.
+
+After confirmation:
 
 ```bash
-"$OWF" status add-rrweb-recording
+owf start add-rrweb-recording
 ```
 
-Use `status` before `start` if you want to confirm that the proposal exists and the implementation worktree has not already been created.
-
-### 3. Confirm the worktree handoff after approval
-
-When the proposal is complete and implementation is about to begin, prompt for confirmation before creating the worktree.
-
-Example:
-
-```text
-The proposal is ready. Do you want to create the implementation worktree for add-rrweb-recording now?
-```
-
-### 4. Start implementation after confirmation
-
-```bash
-"$OWF" start add-rrweb-recording
-```
-
-By default this creates:
+Default results:
 
 - branch: `codex/add-rrweb-recording`
 - worktree: `../<repo>-add-rrweb-recording`
 
-### 5. Develop inside the worktree
+## Cleanup
 
-Example:
-
-```bash
-cd ../your-repo-add-rrweb-recording
-```
-
-Do implementation, validation, and commits in that worktree, not in the main checkout.
-
-### 6. Clean up after merge
+After merge:
 
 ```bash
-"$OWF" cleanup add-rrweb-recording --remove-branch
+owf cleanup add-rrweb-recording --remove-branch
 ```
-
-## Guardrails
-
-- `init` and `start` default to the main checkout, not an existing linked worktree
-- when a proposal is ready to turn into code, ask whether to create the implementation worktree
-- if the user confirms, implementation should move into the worktree instead of staying in the main checkout
-- `change-id` and capability names must be kebab-case
-- `start` fails if the branch is already checked out elsewhere
-- `cleanup` refuses to remove the current checkout
-- `init` requires `openspec/`
-- `start` can still work without `openspec/`, but warns unless explicitly allowed
 
 ## Repository structure
 
 ```text
 .
+├── bin/
+│   └── owf.js
+├── package.json
 ├── SKILL.md
-├── README.md
 ├── agents/
 │   └── openai.yaml
 ├── references/
 │   └── workflow.md
+├── templates/
+│   └── agents_worktree_handoff.md
 └── scripts/
     ├── install_to_codex_home.sh
+    ├── migration_rules.sh
     └── openspec_worktree.sh
 ```
-
-## Versioning
-
-- tag releases when command behavior changes
-- treat script flag changes as versioned interface changes
-- update the installed Codex skill after pulling a newer release
 
 ## License
 

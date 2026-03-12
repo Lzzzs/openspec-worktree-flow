@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenSpec Worktree Flow"
-  short_description: "Move approved OpenSpec changes into smart worktrees"
-  default_prompt: "Use $openspec-worktree-flow when an OpenSpec change is being scaffolded, inspected, or handed off from approved proposal to implementation. At implementation handoff, proactively ask whether to create the worktree now, then start it with a migration-rules library so lightweight context is copied and heavy local directories are symlinked when needed."
+  short_description: "Bootstrap and run OpenSpec worktree handoff with owf"
+  default_prompt: "Use $openspec-worktree-flow when a Codex repository uses OpenSpec proposals and needs the handoff from approved change to implementation worktree. Prefer `owf init` for repository bootstrap, keep the AGENTS.md handoff block and .owf migration rules in place, and when implementation begins proactively ask whether to create the worktree now before using `owf start`."

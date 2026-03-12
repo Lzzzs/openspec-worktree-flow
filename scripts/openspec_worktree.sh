@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/migration_rules.sh"
-
 die() {
   echo "Error: $*" >&2
   exit 1
@@ -22,6 +20,8 @@ usage() {
 Usage:
   openspec_worktree.sh init <change-id> --capability <capability> [--title <title>] [--with-design] [--allow-linked-worktree]
   openspec_worktree.sh start <change-id> [--base <branch-or-ref>] [--worktree-dir <path>] [--allow-missing-change] [--allow-linked-worktree] [--no-snapshot]
+  openspec_worktree.sh repo-init [repo-path] [--allow-missing-openspec] [--force-rules]
+  openspec_worktree.sh sync-agents [repo-path] [--allow-missing-openspec]
   openspec_worktree.sh status <change-id>
   openspec_worktree.sh cleanup <change-id> [--worktree-dir <path>] [--remove-branch] [--force]
   openspec_worktree.sh list
@@ -29,6 +29,8 @@ Usage:
 Commands:
   init     Scaffold an OpenSpec change in the current repository.
   start    Create or reuse codex/<change-id> and add a sibling worktree. When local files are dirty, use a temporary local snapshot commit by default, then apply selective migration rules from `scripts/migration_rules.sh`.
+  repo-init  Bootstrap a repository for owf by updating AGENTS.md and creating repo-local migration rules in .owf/.
+  sync-agents  Inject or refresh a managed AGENTS.md block that enforces worktree handoff before implementation.
   status   Show OpenSpec, branch, and worktree status for the change.
   cleanup  Remove the worktree for the change and optionally delete the branch.
   list     List worktrees for the current repository.
@@ -45,6 +47,56 @@ repo_root() {
 
 repo_name() {
   basename "$(repo_root)"
+}
+
+script_root() {
+  cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd
+}
+
+agents_template_file() {
+  echo "$(script_root)/templates/agents_worktree_handoff.md"
+}
+
+bundled_migration_rules_file() {
+  echo "$(script_root)/scripts/migration_rules.sh"
+}
+
+default_copy_paths() {
+  COPY_PATHS=(
+    "openspec"
+  )
+}
+
+default_symlink_paths() {
+  SYMLINK_PATHS=(
+    "node_modules"
+  )
+}
+
+load_migration_rules() {
+  local root=""
+  local repo_rules=""
+  local bundled_rules=""
+
+  default_copy_paths
+  default_symlink_paths
+
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    root="$(git rev-parse --show-toplevel)"
+    repo_rules="$root/.owf/migration_rules.sh"
+
+    if [[ -f "$repo_rules" ]]; then
+      # shellcheck source=/dev/null
+      source "$repo_rules"
+      return
+    fi
+  fi
+
+  bundled_rules="$(bundled_migration_rules_file)"
+  if [[ -f "$bundled_rules" ]]; then
+    # shellcheck source=/dev/null
+    source "$bundled_rules"
+  fi
 }
 
 openspec_root() {
@@ -292,7 +344,7 @@ recommendation_for_change() {
   fi
 
   if ! change_exists "$change_id"; then
-    echo "Create proposal artifacts first with init or manually scaffold openspec/changes/$change_id/."
+    echo "Create proposal artifacts first with your proposal workflow or manually scaffold openspec/changes/$change_id/."
     return
   fi
 
@@ -380,6 +432,99 @@ The system SHALL [describe the expected behavior].
 EOF2
 }
 
+agents_block_begin() {
+  echo "<!-- BEGIN OPENSPEC WORKTREE FLOW -->"
+}
+
+agents_block_end() {
+  echo "<!-- END OPENSPEC WORKTREE FLOW -->"
+}
+
+target_repo_root() {
+  local input_path="${1:-.}"
+
+  [[ -d "$input_path" ]] || die "repository path does not exist: $input_path"
+
+  if git -C "$input_path" rev-parse --show-toplevel >/dev/null 2>&1; then
+    git -C "$input_path" rev-parse --show-toplevel
+    return
+  fi
+
+  cd "$input_path" && pwd
+}
+
+render_agents_block() {
+  local template_file
+  template_file="$(agents_template_file)"
+  [[ -f "$template_file" ]] || die "AGENTS template is missing: $template_file"
+
+  printf "%s\n" "$(agents_block_begin)"
+  cat "$template_file"
+  printf "\n%s\n" "$(agents_block_end)"
+}
+
+replace_or_append_managed_block() {
+  local agents_file="$1"
+  local block_file="$2"
+  local begin_marker
+  local end_marker
+  local tmp_file
+
+  begin_marker="$(agents_block_begin)"
+  end_marker="$(agents_block_end)"
+  tmp_file="$(mktemp "${TMPDIR:-/tmp}/openspec-worktree-agents.XXXXXX")"
+
+  if [[ -f "$agents_file" ]] && grep -Fq "$begin_marker" "$agents_file"; then
+    awk -v begin="$begin_marker" -v end="$end_marker" -v replacement="$block_file" '
+      $0 == begin {
+        while ((getline line < replacement) > 0) {
+          print line
+        }
+        close(replacement)
+        skipping = 1
+        next
+      }
+      $0 == end {
+        skipping = 0
+        next
+      }
+      skipping != 1 { print }
+    ' "$agents_file" >"$tmp_file"
+  elif [[ -f "$agents_file" ]]; then
+    cat "$agents_file" >"$tmp_file"
+    if [[ -s "$agents_file" ]]; then
+      printf "\n\n" >>"$tmp_file"
+    fi
+    cat "$block_file" >>"$tmp_file"
+  else
+    cat "$block_file" >"$tmp_file"
+  fi
+
+  mv "$tmp_file" "$agents_file"
+}
+
+ensure_repo_local_rules() {
+  local target_root="$1"
+  local force_rules="$2"
+  local target_dir="$target_root/.owf"
+  local target_rules="$target_dir/migration_rules.sh"
+  local bundled_rules
+
+  bundled_rules="$(bundled_migration_rules_file)"
+  [[ -f "$bundled_rules" ]] || die "bundled migration rules are missing: $bundled_rules"
+
+  mkdir -p "$target_dir"
+
+  if [[ -f "$target_rules" && "$force_rules" != "true" ]]; then
+    info "  kept:   $target_rules"
+    return
+  fi
+
+  cp "$bundled_rules" "$target_rules"
+  chmod +x "$target_rules"
+  info "  wrote:  $target_rules"
+}
+
 cmd_init() {
   local change_id="$1"
   shift
@@ -443,6 +588,94 @@ cmd_init() {
   info "  $dir"
 }
 
+cmd_sync_agents() {
+  local repo_path="."
+  local allow_missing_openspec="false"
+
+  while (($#)); do
+    case "$1" in
+      --allow-missing-openspec)
+        allow_missing_openspec="true"
+        shift
+        ;;
+      -*)
+        die "unknown option for sync-agents: $1"
+        ;;
+      *)
+        [[ "$repo_path" == "." ]] || die "sync-agents accepts at most one repo path"
+        repo_path="$1"
+        shift
+        ;;
+    esac
+  done
+
+  local target_root=""
+  local target_agents=""
+  local target_openspec=""
+  local block_file=""
+
+  target_root="$(target_repo_root "$repo_path")"
+  target_agents="$target_root/AGENTS.md"
+  target_openspec="$target_root/openspec"
+  block_file="$(mktemp "${TMPDIR:-/tmp}/openspec-worktree-managed-block.XXXXXX")"
+  trap 'rm -f "$block_file"' RETURN
+
+  if [[ ! -d "$target_openspec" && "$allow_missing_openspec" != "true" ]]; then
+    die "openspec/ not found in target repository: $target_root"
+  fi
+
+  render_agents_block >"$block_file"
+  replace_or_append_managed_block "$target_agents" "$block_file"
+
+  rm -f "$block_file"
+  trap - RETURN
+
+  info "Updated AGENTS.md:"
+  info "  $target_agents"
+}
+
+cmd_repo_init() {
+  local repo_path="."
+  local allow_missing_openspec="false"
+  local force_rules="false"
+
+  while (($#)); do
+    case "$1" in
+      --allow-missing-openspec)
+        allow_missing_openspec="true"
+        shift
+        ;;
+      --force-rules)
+        force_rules="true"
+        shift
+        ;;
+      -*)
+        die "unknown option for repo-init: $1"
+        ;;
+      *)
+        [[ "$repo_path" == "." ]] || die "repo-init accepts at most one repo path"
+        repo_path="$1"
+        shift
+        ;;
+    esac
+  done
+
+  local target_root=""
+
+  target_root="$(target_repo_root "$repo_path")"
+
+  if [[ "$allow_missing_openspec" == "true" ]]; then
+    cmd_sync_agents "$target_root" --allow-missing-openspec
+  else
+    cmd_sync_agents "$target_root"
+  fi
+
+  ensure_repo_local_rules "$target_root" "$force_rules"
+
+  info "Initialized owf repository support:"
+  info "  repo:   $target_root"
+}
+
 cmd_start() {
   local change_id="$1"
   shift
@@ -490,6 +723,7 @@ cmd_start() {
   require_git_repo
   require_main_checkout "$allow_linked_worktree"
   validate_kebab "change-id" "$change_id"
+  load_migration_rules
 
   source_root="$(repo_root)"
 
@@ -674,6 +908,12 @@ main() {
     start)
       (($# >= 1)) || die "start requires <change-id>"
       cmd_start "$@"
+      ;;
+    repo-init)
+      cmd_repo_init "$@"
+      ;;
+    sync-agents)
+      cmd_sync_agents "$@"
       ;;
     status)
       (($# == 1)) || die "status requires exactly <change-id>"

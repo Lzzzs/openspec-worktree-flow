@@ -1,0 +1,33 @@
+{
+  "name": "openspec-worktree-flow",
+  "version": "0.1.0",
+  "description": "Codex-focused CLI for bootstrapping and running OpenSpec worktree handoff workflows.",
+  "license": "MIT",
+  "bin": {
+    "owf": "./bin/owf.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "templates",
+    "README.md",
+    "README.zh-CN.md",
+    "SKILL.md",
+    "agents",
+    "references",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lzzzs/openspec-worktree-flow.git"
+  },
+  "keywords": [
+    "codex",
+    "openspec",
+    "worktree",
+    "cli"
+  ]
+}
