@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require("child_process");
+const packageJson = require("../package.json");
 const path = require("path");
 
 const engineScript = path.join(__dirname, "..", "scripts", "openspec_worktree.sh");
@@ -16,11 +17,20 @@ const usage = `Usage:
 Advanced:
   owf sync-agents [repo-path] [--allow-missing-openspec]
   owf change-init <change-id> --capability <capability> [--title <title>] [--with-design] [--allow-linked-worktree]
+
+Options:
+  -h, --help      Show this help message
+  -V, --version   Show the current owf version
 `;
 
 function printUsage(exitCode = 0) {
   process.stdout.write(`${usage}\n`);
   process.exit(exitCode);
+}
+
+function printVersion() {
+  process.stdout.write(`${packageJson.version}\n`);
+  process.exit(0);
 }
 
 function mapCommand(args) {
@@ -41,6 +51,11 @@ function mapCommand(args) {
       return [command, ...rest];
     case "change-init":
       return ["init", ...rest];
+    case "version":
+    case "--version":
+    case "-V":
+      printVersion();
+      break;
     case "help":
     case "--help":
     case "-h":
