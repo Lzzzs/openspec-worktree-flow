@@ -78,6 +78,8 @@ Teams can edit `.owf/migration_rules.sh` per repository without modifying the gl
 
 Once a proposal is approved and the user asks to implement, Codex should ask whether to create the worktree now.
 
+Do not ask this during merge, rebase, cherry-pick, cleanup, archive, or other close-out tasks for the same change.
+
 After confirmation:
 
 ```bash
@@ -96,6 +98,38 @@ After merge:
 ```bash
 owf cleanup add-rrweb-recording --remove-branch
 ```
+
+## Trigger boundaries
+
+Ask about worktree creation only when the request is moving from proposal to coding, for example:
+
+- implement this change
+- start coding
+- continue implementation
+- begin development for this approved proposal
+
+Do not ask about creating a new worktree when the request is instead about:
+
+- merging the implementation branch
+- rebasing or cherry-picking
+- cleaning up the branch or worktree
+- archiving or closing out the change
+
+## Release
+
+To avoid publishing code without a matching git tag, use the bundled release script:
+
+```bash
+bash scripts/release.sh 0.1.4
+```
+
+Or through npm:
+
+```bash
+npm run release:owf -- 0.1.4
+```
+
+This script updates `package.json`, validates the package, creates a release commit, creates tag `v0.1.4`, pushes `main` and the tag, then publishes to npm.
 
 ## Repository structure
 

@@ -21,6 +21,8 @@ This workflow keeps work isolated at three levels:
 9. Merge the branch.
 10. Run `owf cleanup <change-id> --remove-branch` when the worktree is no longer needed.
 
+Do not treat merge, rebase, cherry-pick, cleanup, archive, or close-out requests as worktree handoff moments.
+
 ## Repository bootstrap
 
 `owf init` updates two repository-owned artifacts:
@@ -42,6 +44,8 @@ Create the worktree only after proposal approval and only when implementation is
 If the proposal is approved and the user is asking to start coding, Codex should proactively use this flow. Do not wait for the user to name the tool.
 
 At the handoff point, explicitly ask whether to create the worktree now unless the user already confirmed that decision.
+
+If the user is asking to merge the implementation branch, rebase it, clean it up, archive the change, or otherwise finish the change, do not ask to create a new worktree.
 
 ## Naming rules
 

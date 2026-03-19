@@ -81,6 +81,8 @@ owf init
 
 当 proposal 已批准、用户开始要求实现时，Codex 应先确认是否创建 worktree。
 
+如果当前意图是 merge、rebase、cherry-pick、cleanup、archive，或者其它收尾动作，就不要再问是否新开 worktree。
+
 确认后执行：
 
 ```bash
@@ -99,6 +101,45 @@ owf start add-rrweb-recording
 ```bash
 owf cleanup add-rrweb-recording --remove-branch
 ```
+
+## 触发边界
+
+只有当请求正在从 proposal 转向写代码时，才应该询问是否创建 worktree，例如：
+
+- 开始实现这个需求
+- 开始写代码
+- 继续实现
+- 这个已批准提案现在进入开发
+
+如果当前请求是在做下面这些事，就不应该再询问是否新开 worktree：
+
+- 合并实现分支
+- rebase 或 cherry-pick
+- 清理分支或 worktree
+- 归档或关闭这个 change
+
+## 发布
+
+为了避免“发了 npm 但没打 git tag”，后续发布统一走内置脚本：
+
+```bash
+bash scripts/release.sh 0.1.4
+```
+
+或者：
+
+```bash
+npm run release:owf -- 0.1.4
+```
+
+这个脚本会自动完成：
+
+- 更新 `package.json` 版本
+- 执行 `npm pack --dry-run`
+- 创建 release commit
+- 创建 `v0.1.4` tag
+- push `main` 和 tag
+- 发布 npm
 
 ## 仓库结构
 

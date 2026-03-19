@@ -1,6 +1,6 @@
 ---
 name: "openspec-worktree-flow"
-description: "Use when a Codex repository relies on OpenSpec proposals and the work is moving from approved change to implementation in an isolated git worktree. Covers bootstrapping repositories with `owf init`, inspecting lifecycle state, starting implementation worktrees, applying migration rules, and cleaning up after merge."
+description: "Use when a Codex repository relies on OpenSpec proposals and the work is moving from approved change to implementation in an isolated git worktree. Covers bootstrapping repositories with `owf init`, inspecting lifecycle state, starting implementation worktrees, applying migration rules, and cleaning up after merge. Do not trigger worktree prompts for merge, rebase, cleanup, archive, or other close-out tasks."
 ---
 
 # OpenSpec Worktree Flow
@@ -17,6 +17,7 @@ Use this skill when a repository already uses OpenSpec for proposals, but Codex 
 6. After confirmation, use `owf start <change-id>` and do implementation work in the sibling worktree.
 7. Prefer repo-local migration rules from `.owf/migration_rules.sh`; fall back to the bundled defaults only when the repository has not been bootstrapped yet.
 8. Clean up with `owf cleanup <change-id> --remove-branch` after merge when the worktree is no longer needed.
+9. If the user is merging, rebasing, cherry-picking, cleaning up, archiving, or otherwise closing out the change, do not ask to create a new worktree.
 
 ## Commands
 
@@ -61,5 +62,6 @@ Open only what you need:
 
 - Worktree isolation should be recommended by default once implementation begins.
 - If the proposal is approved and the user asks to start coding, do not continue in the main checkout without first resolving the handoff.
+- Do not prompt for worktree creation during merge, rebase, cherry-pick, cleanup, archive, or other close-out tasks.
 - `owf start` should normally run from the main checkout, not from an existing linked worktree.
 - `change-id` and capability names should remain kebab-case.
