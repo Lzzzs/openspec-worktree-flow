@@ -3,6 +3,9 @@
   "version": "0.1.1",
   "description": "Codex-focused CLI for bootstrapping and running OpenSpec worktree handoff workflows.",
   "license": "MIT",
+  "scripts": {
+    "release:owf": "bash scripts/release.sh"
+  },
   "bin": {
     "owf": "./bin/owf.js"
   },
